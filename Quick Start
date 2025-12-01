@@ -1,0 +1,197 @@
+Development Mode (Not for Production)
+Development mode runs Vault in-memory and is useful for testing:
+
+
+# Start Vault in dev mode
+vault server -dev
+
+# In a new terminal, set environment variables
+export VAULT_ADDR='http://127.0.0.1:8200'
+export VAULT_DEV_ROOT_TOKEN_ID='your-root-token-from-output'
+
+# Verify Vault is running
+vault status
+
+----------------------------------------------------------------
+
+Basic Operations in Dev Mode
+# Write a secret
+vault kv put secret/hello foo=world
+
+# Read a secret
+vault kv get secret/hello
+
+# List secrets
+vault kv list secret/
+
+----------------------------------------------------------------
+
+Production Configuration
+1. Create Vault Configuration Directory
+
+sudo mkdir -p /etc/vault.d
+sudo mkdir -p /opt/vault/data
+sudo useradd --system --home /etc/vault.d --shell /bin/false vault
+sudo chown -R vault:vault /etc/vault.d /opt/vault/data
+
+----------------------------------------------------------------
+
+2. Create Configuration File
+Create /etc/vault.d/vault.hcl:
+
+# Storage backend - using file storage for local development
+storage "file" {
+  path = "/opt/vault/data"
+}
+
+# HTTP listener
+listener "tcp" {
+  address     = "127.0.0.1:8200"
+  tls_disable = 1
+}
+
+# API address
+api_addr = "http://127.0.0.1:8200"
+
+# UI
+ui = true
+
+# Disable mlock for development (enable in production)
+disable_mlock = true
+
+----------------------------------------------------------------
+
+3. Create Systemd Service
+Create /etc/systemd/system/vault.service:
+
+[Unit]
+Description="HashiCorp Vault - A tool for managing secrets"
+Documentation=https://www.vaultproject.io/docs/
+Requires=network-online.target
+After=network-online.target
+ConditionFileNotEmpty=/etc/vault.d/vault.hcl
+
+[Service]
+Type=notify
+User=vault
+Group=vault
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+SecureBits=keep-caps
+AmbientCapabilities=CAP_IPC_LOCK
+CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
+NoNewPrivileges=yes
+ExecStart=/usr/bin/vault server -config=/etc/vault.d/vault.hcl
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+
+---------------------------------------------------------------------
+
+4. Start Vault Service
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable Vault to start on boot
+sudo systemctl enable vault
+
+# Start Vault
+sudo systemctl start vault
+
+# Check status
+sudo systemctl status vault
+
+----------------------------------------------------------------------
+
+5. Initialize Vault
+
+# Set environment variable
+export VAULT_ADDR='http://127.0.0.1:8200'
+
+# Initialize Vault (save output securely!)
+vault operator init
+
+# Unseal Vault (use 3 of the 5 unseal keys from init)
+vault operator unseal <unseal-key-1>
+vault operator unseal <unseal-key-2>
+vault operator unseal <unseal-key-3>
+
+# Login with root token
+vault login <root-token>
+
+# Check status
+vault status
+
+
+------------------------------------------------------------------------
+************************************************************************
+Common Operations
+
+Enable Secret Engines
+
+# Enable KV v2 secrets engine
+vault secrets enable -version=2 kv
+
+# Enable other engines
+vault secrets enable database
+vault secrets enable transit
+
+-------------------------------------------------------------------------
+
+Managing Secrets
+
+# Write secret
+vault kv put kv/myapp/config username="admin" password="secret"
+
+# Read secret
+vault kv get kv/myapp/config
+
+# Read specific field
+vault kv get -field=username kv/myapp/config
+
+# Delete secret
+vault kv delete kv/myapp/config
+
+------------------------------------------------------------------------
+
+User Management
+
+# Enable userpass auth
+vault auth enable userpass
+
+# Create user
+vault write auth/userpass/users/myuser password="mypassword"
+
+# Login as user
+vault login -method=userpass username=myuser
+
+-------------------------------------------------------------------------
+
+Policy Management
+
+# Create policy file (myapp-policy.hcl)
+cat > myapp-policy.hcl <<EOF
+path "kv/data/myapp/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+EOF
+
+# Write policy
+vault policy write myapp myapp-policy.hcl
+
+# Assign policy to user
+vault write auth/userpass/users/myuser policies="myapp"
+
+--------------------------------------------------------------------------
+
