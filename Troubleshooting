@@ -1,0 +1,54 @@
+Check Vault Logs
+
+# View service logs
+sudo journalctl -u vault -f
+
+# View specific time range
+sudo journalctl -u vault --since "1 hour ago"
+
+-----------------------------------------------
+
+Common Issues
+Vault is Sealed
+
+vault operator unseal <key-1>
+vault operator unseal <key-2>
+vault operator unseal <key-3>
+
+----------------------------------------------
+
+Permission Denied
+
+# Check file permissions
+ls -la /opt/vault/data
+ls -la /etc/vault.d
+
+# Fix if needed
+sudo chown -R vault:vault /opt/vault/data /etc/vault.d
+
+-----------------------------------------------
+
+* Security Considerations
+For Production Deployments
+
+1. Enable TLS: Never run production Vault without TLS
+2. Use External Storage: Consider Consul, etcd, or cloud storage
+3. Enable mlock: Set disable_mlock = false
+4. Secure Unseal Keys: Use separate key custodians
+5. Regular Backups: Implement automated backup strategy
+6. Audit Logging: Enable and monitor audit logs
+7. Network Isolation: Run Vault in isolated network segment
+8. Auto-Unseal: Consider using cloud KMS for auto-unsealing
+
+TLS Configuration Example
+
+# hcl
+
+listener "tcp" {
+  address       = "0.0.0.0:8200"
+  tls_cert_file = "/etc/vault.d/vault.crt"
+  tls_key_file  = "/etc/vault.d/vault.key"
+}
+
+---------------------------------------------------
+
