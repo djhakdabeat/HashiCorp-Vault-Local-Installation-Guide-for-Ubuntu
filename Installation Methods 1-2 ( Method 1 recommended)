@@ -1,0 +1,36 @@
+Method 1: Using Official HashiCorp Repository (Recommended)
+
+# Update package list
+sudo apt update
+
+# Install required packages
+sudo apt install -y wget gpg coreutils
+
+# Add HashiCorp GPG key
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+# Add HashiCorp repository
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# Update and install Vault
+sudo apt update
+sudo apt install vault
+
+
+
+Method 2: Binary Installation
+
+# Download latest Vault binary
+VAULT_VERSION="1.15.0"
+wget https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
+
+# Install unzip if needed
+sudo apt install -y unzip
+
+# Unzip and install
+unzip vault_${VAULT_VERSION}_linux_amd64.zip
+sudo mv vault /usr/local/bin/
+sudo chmod +x /usr/local/bin/vault
+
+# Verify installation
+vault --version
